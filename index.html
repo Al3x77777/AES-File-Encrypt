@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AES File Encrypt / Decrypt</title>
+    <script src="crypto-js.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'DM Sans';
+            src: url('DMSans.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            display: flex;
+            user-select: none;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #fileInput {
+            display: block;
+            margin: 20px auto;
+        }
+
+        .message {
+            margin-top: 10px;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>AES File Encrypt / Decrypt</h2>
+        <input type="file" id="fileInput" />
+        <input type="password" id="encryptionKey" placeholder="Enter Key!" />
+        <br>
+        <button onclick="encryptFile()">Encrypt!</button>
+        <button onclick="decryptFile()">Decrypt!</button>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function() {
+            document.getElementById('message').textContent = '';
+        });
+
+        function showMessage(message, isError = true) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.style.color = isError ? 'red' : 'green';
+        }
+
+        function encryptFile() {
+            const fileInput = document.getElementById('fileInput').files[0];
+            const encryptionKey = document.getElementById('encryptionKey').value;
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = '';
+
+            if (fileInput && encryptionKey) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const fileContent = new Uint8Array(e.target.result);
+                    const encrypted = CryptoJS.AES.encrypt(bytesToWordArray(fileContent), encryptionKey).toString();
+                    const encryptedBlob = new Blob([encrypted], { type: fileInput.type });
+                    const url = URL.createObjectURL(encryptedBlob);
+                    const a = document.createElement('a');
+                    const encryptedFileName = fileInput.name.replace(/\.[^/.]+$/, '') + '_ENCRYPTED' + fileInput.name.match(/\.[^/.]+$/);
+                    a.href = url;
+                    a.download = encryptedFileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showMessage('File Encrypted And Downloaded Successfully!', false);
+                };
+                reader.readAsArrayBuffer(fileInput);
+            } else {
+                showMessage('Please Select A File And Enter An Encryption Key!');
+            }
+        }
+
+        function decryptFile() {
+            const fileInput = document.getElementById('fileInput').files[0];
+            const encryptionKey = document.getElementById('encryptionKey').value;
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = '';
+
+            if (fileInput && encryptionKey) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const fileContent = e.target.result;
+                    try {
+                        const decrypted = CryptoJS.AES.decrypt(fileContent, encryptionKey);
+                        const decryptedFile = wordArrayToUint8Array(decrypted);
+                        const blob = new Blob([decryptedFile], { type: fileInput.type });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        const decryptedFileName = fileInput.name.replace('_ENCRYPTED', '_DECRYPTED');
+                        a.href = url;
+                        a.download = decryptedFileName;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        showMessage('File Decrypted And Downloaded Successfully!', false);
+                    } catch (e) {
+                        showMessage('Failed To Decrypt File! Please Check The Encryption Key!');
+                    }
+                };
+                reader.readAsText(fileInput);
+            } else {
+                showMessage('Please Select A File And Enter An Encryption Key!');
+            }
+        }
+
+        function bytesToWordArray(bytes) {
+            const words = [];
+            for (let i = 0; i < bytes.length; i += 4) {
+                words.push((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]);
+            }
+            return CryptoJS.lib.WordArray.create(words, bytes.length);
+        }
+
+        function wordArrayToUint8Array(wordArray) {
+            const words = wordArray.words;
+            const sigBytes = wordArray.sigBytes;
+            const uInt8Array = new Uint8Array(sigBytes);
+            for (let i = 0; i < sigBytes; i++) {
+                uInt8Array[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+            }
+            return uInt8Array;
+        }
+    </script>
+</body>
+</html>
